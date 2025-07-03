@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Screen Scale</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/5.1.0/pixi.min.js"></script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #1099bb;
+      }
+
+      div#orientation-msg {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #a31234;
+        color: #ffffff;
+        font-size: 45px;
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+      }
+    </style>
+  </head>
+
+  <div id="orientation-msg">Please rotate your mobile to vertical</div>
+
+  <body>
+    <script>
+      // This example show how to adapt the content to the screen using pixi 5.1
+      // we can simulate a fluid layout but we need to move the elements "by hand"
+      // this is enough for most cases, just platying with containers, matrices and positions
+      // but if the team have time to migrate to the last pixi version (not sure why it required to do it)
+      // we may use https://github.com/pixijs/layout which is a new solution that using a flex engine under the hood
+
+      const BG_COLOR = 0x1099bb;
+
+      // define a working resolution
+      const WORKING_WIDTH = 1660;
+      const WORKING_HEIGHT = 2560;
+
+      // normalized percentages for the height of the containers (0-1 = 0-100%)
+      const HEADER_HEIGHT_PERCENT = 0.19; // 19%
+      const CONTENT_HEIGHT_PERCENT = 0.6; // 60%
+      const FOOTER_HEIGHT_PERCENT = 0.19; // 19%
+
+      // init the application
+      const app = new PIXI.Application({
+        // width and height must use full windows size
+        width: window.innerWidth,
+        height: window.innerHeight,
+        // device pixel ratio should be set
+        resolution: window.devicePixelRatio,
+
+        antialias: true,
+        backgroundColor: BG_COLOR,
+      });
+      app.view.style.width = "100%";
+      app.view.style.height = "100%";
+
+      // add the canvas to the DOM
+      document.body.appendChild(app.view);
+
+      // the core of our app will be inside this container
+      const scene = createContainer(
+        BG_COLOR,
+        WORKING_WIDTH,
+        WORKING_HEIGHT,
+        "scene",
+      );
+      app.stage.addChild(scene);
+
+      // different sections of our
+      const header = createContainer(
+        0xff0000,
+        WORKING_WIDTH,
+        WORKING_HEIGHT * HEADER_HEIGHT_PERCENT,
+        "header",
+      );
+      scene.addChild(header);
+      const content = createContainer(
+        0x0000ff,
+        WORKING_WIDTH,
+        WORKING_HEIGHT * CONTENT_HEIGHT_PERCENT,
+        "content",
+      );
+      scene.addChild(content);
+      const footer = createContainer(
+        0x00ff00,
+        WORKING_WIDTH,
+        WORKING_HEIGHT * FOOTER_HEIGHT_PERCENT,
+        "footer",
+      );
+      scene.addChild(footer);
+
+      // if the viewport is landscape we show the rotation message
+      const displayOrientationMsg = () => {
+        const isLandscape = window.innerWidth >= window.innerHeight;
+        document.getElementById("orientation-msg").style.display = isLandscape
+          ? "flex"
+          : "none";
+      };
+
+      // executed each time the browser is resized
+      const onResize = (evt) => {
+        displayOrientationMsg();
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // set the renderer size to the screen size
+        app.renderer.resize(width, height);
+
+        // here is the trick, we need to calculate the relation between the screen size and
+        // the working resolution so it always fit in the screen keeping the aspect ratio that we set
+        const containerScale = Math.min(
+          width / WORKING_WIDTH,
+          height / WORKING_HEIGHT,
+        );
+
+        // set the scale for the main container
+        scene.scale.set(containerScale, containerScale);
+
+        // set the position of the container and the other elements
+        scene.position.set(
+          width * 0.5 - scene.width * 0.5,
+          height * 0.5 - scene.height * 0.5,
+        );
+
+        const scaledWidth = scene.width / containerScale;
+        const scaledHeight = scene.height / containerScale;
+
+        // calculate proprtional height (scale vs real) and the diff
+        const realHeight = window.innerHeight / containerScale;
+        const heightDiff = (realHeight - scaledHeight) / 2;
+
+        // set size and align to center-top
+        header.position.set(
+          scaledWidth * 0.5 - header.width * 0.5,
+          -heightDiff, // place the header at the top of the window
+        );
+
+        // set size and align to center-middle
+        content.position.set(
+          scaledWidth * 0.5 - content.width * 0.5,
+          realHeight * 0.5 - content.height * 0.5, // place at the center
+        );
+
+        // set size and align to center-bottom
+        footer.position.set(
+          scaledWidth * 0.5 - footer.width * 0.5,
+          scaledHeight + heightDiff - footer.height, // place at the bottom
+        );
+      };
+
+      // executed every frame
+      const onUpdate = (dt) => {};
+
+      // this is the first callback executed by our app
+      const setup = () => {
+        // call onResize for first time to set the right dimensions
+        onResize();
+
+        // once everything is in place add the onUpdate callback
+        app.ticker.add(onUpdate);
+      };
+
+      // listen for resize events
+      window.addEventListener("resize", onResize);
+      onResize();
+
+      // here we'll load the assets and then execute the setup
+      app.loader.load(setup);
+
+      // ideally we will use a custom class from typescript, here I am just building the hierarchy by nesting childs
+      // directly and adding some hackish properties on the js objects.
+      // I'll advice against adding properties like I am doing here because for a project like piqu3 you're going to have a bad
+      // time debugging if something goes wrong. It's better to stick with the types defined by the custom classes from TS.
+      // However this works for the example.
+      function createContainer(color, width, height, id) {
+        // usually I would use just PIXI.Container but I am using PIXI.Graphics so we can
+        // add color to them to see how they behave when resizing
+        const bg = new PIXI.Graphics()
+          .beginFill(color)
+          .drawRect(0, 0, width, height)
+          .endFill();
+
+        // now the real container
+        const entity = new PIXI.Container();
+        entity.addChild(bg);
+
+        const txt = new PIXI.Text(id, {
+          fontSize: 128,
+          fill: 0xffffff,
+        });
+        txt.anchor.set(0.5, 0.5);
+        txt.position.set(width * 0.5, height * 0.5);
+        entity.addChild(txt);
+
+        // this is a bit hackish so I can store the color here for the demo
+        bg.__customColor = color;
+        entity.__bg = bg;
+
+        return entity;
+      }
+    </script>
+  </body>
+</html>
