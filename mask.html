@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Screen Scale</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/5.1.0/pixi.min.js"></script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #1099bb;
+      }
+    </style>
+  </head>
+
+  <body>
+    <script>
+      const BG_COLOR = 0x1099bb;
+
+      // init the application
+      const app = new PIXI.Application({
+        // width and height must use full windows size
+        width: window.innerWidth,
+        height: window.innerHeight,
+        // device pixel ratio should be set
+        resolution: window.devicePixelRatio,
+
+        antialias: true,
+        backgroundColor: BG_COLOR,
+      });
+      app.view.style.width = "100%";
+      app.view.style.height = "100%";
+
+      // add the canvas to the DOM
+      document.body.appendChild(app.view);
+
+      // executed every frame
+      const onUpdate = (dt) => {};
+
+      // this is the first callback executed by our app
+      const setup = (_, resources) => {
+        // once everything is in place add the onUpdate callback
+        app.ticker.add(onUpdate);
+
+        // add the avatar with the mask here
+        let avatar = createAvatar(resources);
+        app.stage.addChild(avatar);
+      };
+
+      // here we'll load the assets and then execute the setup
+      app.loader
+        .add("shadow", "./assets/shadow.png")
+        .add("torta", "./assets/torta.png")
+        .add("pera", "./assets/pera.png")
+        .add("mask", "./assets/white_mask.png")
+        .load(setup);
+
+      // -------------------------
+      function createAvatar(resources) {
+        // create a main container to put all the layers on it
+        let container = new PIXI.Container();
+
+        // first layer is the shadow
+        let shadow = new PIXI.Sprite(resources.shadow.texture);
+        container.addChild(shadow);
+
+        // now the layer of the "torta"
+        let torta = new PIXI.Sprite(resources.torta.texture);
+        container.addChild(torta);
+
+        // let's add the avatar, for the real project this should be the
+        // new FruitAvatar(team, werables_in_inventory)
+        let pera = new PIXI.Sprite(resources.pera.texture);
+
+        // lets match the size of the avatar with the torta, to do so we
+        // caclulate the scale based on the width of both textures
+        let peraScale = torta.texture.width / pera.texture.width;
+        pera.scale.set(peraScale, peraScale);
+        container.addChild(pera);
+
+        // now let's set the mask to the avatar, in the real project this should be
+        // set to the FruitAvatar.
+        let mask = new PIXI.Sprite(resources.mask.texture);
+        pera.mask = mask;
+
+        return container;
+      }
+    </script>
+  </body>
+</html>
